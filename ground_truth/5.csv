@@ -1,0 +1,10 @@
+start_frame,end_frame,target_visible,view
+0,904,1,front
+905,1750,0,none
+1751,2109,1,front
+2110,2459,0,none
+2460,2513,1,back
+2514,2580,0,none
+2581,2625,1,back
+2626,2683,0,none
+2684,2697,1,side

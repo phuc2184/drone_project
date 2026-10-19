@@ -1,0 +1,50 @@
+# Virtual environments
+venv/
+.venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# Model weights
+weights/
+*.pt
+*.pth
+*.onnx
+*.engine
+*.tflite
+*.weights
+*.bin
+yolov8n.pt
+
+# Videos & media files
+videos/
+outputs/
+*.mp4
+*.avi
+*.mkv
+*.mov
+*.flv
+
+# Build & ROS directories
+build/
+devel/
+*.egg-info/
+dist/
+
+# Logs & temporary run outputs
+logs/
+*.log
+backups/
+
+# Python cache & compiled files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# IDEs & System files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

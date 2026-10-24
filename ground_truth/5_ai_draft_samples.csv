@@ -1,0 +1,91 @@
+frame,label,view,reason
+0,V,front,denim jacket black turtleneck bottle prominent
+30,V,front,denim jacket turtleneck bottle clearly visible
+60,V,front,denim jacket turtleneck bottle clearly visible
+90,V,front,denim jacket turtleneck bottle clearly visible
+120,V,front,denim jacket turtleneck bottle clearly visible
+150,V,front,denim jacket turtleneck bottle visible
+180,V,front,denim jacket turtleneck bottle visible drinking
+210,V,front,denim jacket turtleneck bottle visible
+240,V,front,denim jacket turtleneck drinking bottle
+270,V,front,denim jacket turtleneck visible
+300,V,front,denim jacket turtleneck bottle visible
+330,V,front,denim jacket turtleneck bottle visible
+360,V,front,denim jacket turtleneck smiling visible
+390,V,front,denim jacket turtleneck bottle visible
+420,V,front,denim jacket turtleneck bottle visible
+450,V,front,denim jacket turtleneck bottle visible
+480,V,front,denim jacket turtleneck bottle visible
+510,V,front,denim jacket turtleneck bottle visible
+540,V,front,denim jacket turtleneck bottle visible
+570,V,side,denim jacket side profile bottle visible
+600,V,front,denim jacket turtleneck bottle visible
+630,V,front,denim jacket turtleneck drinking bottle
+660,V,front,denim jacket turtleneck visible bottle
+690,V,front,denim jacket turtleneck visible bottle
+720,V,front,denim jacket turtleneck bottle visible
+750,V,front,denim jacket turtleneck bottle visible
+780,V,front,denim jacket turtleneck bottle visible
+810,V,front,denim jacket turtleneck bottle visible
+840,V,front,denim jacket turtleneck bottle visible
+870,V,front,denim jacket turtleneck bottle raised
+900,V,front,denim jacket turtleneck smiling
+930,N,none,grey hoodie glasses man distractor
+960,N,none,grey hoodie glasses man distractor
+990,N,none,grey hoodie glasses man distractor
+1020,N,none,grey hoodie glasses man crowd
+1050,N,none,grey hoodie man no denim jacket
+1080,N,none,grey hoodie man no denim jacket
+1110,N,none,grey hoodie man no denim jacket
+1140,N,none,grey hoodie man no denim jacket
+1170,N,none,grey hoodie man crowd scene
+1200,N,none,grey hoodie man visible no target
+1230,N,none,grey hoodie man visible no target
+1260,N,none,grey hoodie man exiting crowd scene
+1290,N,none,crowd no target visible
+1320,N,none,crowd no target visible
+1350,N,none,crowd passing no target
+1380,N,none,crowd no target
+1410,N,none,crowd no target visible
+1440,N,none,crowd no target visible
+1470,N,none,crowd passers no target
+1500,N,none,crowd passers no target
+1530,N,none,crowd no target visible
+1560,N,none,crowd passers no target
+1590,N,none,crowd passers no target
+1620,N,none,crowd passers no target
+1650,N,none,crowd no target
+1680,N,none,crowd no target
+1710,N,none,crowd no target visible
+1740,N,none,crowd target not yet visible
+1770,V,front,denim jacket turtleneck drinking bottle side
+1800,V,side,denim jacket turtleneck drinking bottle visible
+1830,V,front,denim jacket umbrella bottle visible
+1860,V,front,denim jacket turtleneck bottle visible
+1890,V,front,denim jacket turtleneck bottle visible
+1920,V,front,denim jacket turtleneck bottle visible
+1950,V,front,denim jacket turtleneck visible
+1980,V,front,denim jacket turtleneck visible drinking
+2010,V,front,denim jacket turtleneck visible
+2040,V,front,denim jacket turtleneck smiling bottle
+2070,V,front,denim jacket turtleneck smiling
+2100,V,back,denim jacket dark backpack walking away
+2130,V,back,denim jacket dark backpack walking away
+2160,U,back,umbrella occlusion denim jacket partially visible
+2190,U,back,umbrella occlusion target partially visible
+2220,N,none,camera on glasses man umbrella target absent
+2250,N,none,camera following woman denim jacket absent
+2280,N,none,woman white jacket brown hair target absent
+2310,N,none,camera crowd no target
+2340,N,none,crowd woman no target
+2370,N,none,crowd no target
+2400,V,back,denim jacket dark backpack walking away visible
+2430,V,back,denim jacket backpack visible side
+2460,V,front,denim jacket turtleneck smiling visible
+2490,V,front,denim jacket turtleneck visible
+2520,N,none,screen cut YouTube UI no target
+2550,N,none,screen YouTube UI no target
+2580,V,back,denim jacket backpack walking beer shop
+2610,V,back,denim jacket backpack walking beer shop
+2640,V,back,denim jacket backpack screen overlay
+2670,V,back,denim jacket backpack screen overlay

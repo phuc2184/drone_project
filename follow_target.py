@@ -1148,9 +1148,11 @@ def run_tracking(video_path: str,
     detector = DetectorTracker()
 
     # Model weights mapping
-    weights_path = REID_WEIGHTS_PATH
-    if reid_model != REID_MODEL_NAME:
-        weights_path = f"/home/foxsec/drone_project/weights/{reid_model}_msmt17.pth"
+    REID_WEIGHTS_MAP = {
+        "osnet_x1_0":     "/home/foxsec/drone_project/weights/osnet_x1_0_msmt17.pth",
+        "osnet_ain_x1_0": "/home/foxsec/drone_project/weights/osnet_ain_x1_0_msmt17.pth",
+    }
+    weights_path = REID_WEIGHTS_MAP.get(reid_model, REID_WEIGHTS_PATH)
 
     reid_extractor = PersonReIDExtractor(model_name=reid_model, weights_path=weights_path)
     manager = TargetManager(
@@ -1248,7 +1250,37 @@ def run_tracking(video_path: str,
         if not headless:
             cv2.destroyAllWindows()
 
-        print(f"\n[Tracking Run Completed] Avg FPS: {avg_fps:.2f} | Video: {out_path} | Log: {log_csv_path}")
+        # Format suspected false lock frame ranges (R6)
+        def _group_ranges(frames):
+            if not frames:
+                return []
+            ranges = []
+            start = frames[0]
+            end = frames[0]
+            for f in frames[1:]:
+                if f == end + 1:
+                    end = f
+                else:
+                    ranges.append(f"{start}-{end}" if start != end else f"{start}")
+                    start = f
+                    end = f
+            ranges.append(f"{start}-{end}" if start != end else f"{start}")
+            return ranges
+
+        false_lock_ranges = _group_ranges(suspected_false_lock_frames)
+
+        print("\n" + "=" * 60)
+        print("TRACKING RUN COMPLETED (STEP 2 REFINED)")
+        print(f"  ReID Weights File       : {os.path.basename(weights_path)}")
+        print(f"  Start frame index       : {start_frame_idx}")
+        print(f"  Frames processed        : {processed_count}")
+        print(f"  Total processing time   : {total_time:.2f} s")
+        print(f"  Average pipeline FPS    : {avg_fps:.2f} FPS")
+        print(f"  Annotated video saved   : {out_path}")
+        print(f"  CSV log saved           : {log_csv_path}")
+        print(f"  Gallery debug images    : {GALLERY_DEBUG_DIR}")
+        print(f"  Suspected False-Locks   : {false_lock_ranges if false_lock_ranges else 'None (0 frames)'}")
+        print("=" * 60 + "\n")
 
 
 # ==============================================================================

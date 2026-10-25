@@ -379,10 +379,12 @@ class TargetManager:
                  feature_extractor: Optional[FeatureExtractor] = None,
                  quality_filter: Optional[QualityFilter] = None,
                  use_view_chain: bool = USE_VIEW_CHAIN_UPDATE,
-                 use_color_cue: bool = USE_COLOR_CUE):
+                 use_color_cue: bool = USE_COLOR_CUE,
+                 gallery_debug_dir: Optional[str] = None):
         self.state: TargetState = TargetState.IDLE
         self.feature_extractor = feature_extractor or PersonReIDExtractor()
         self.quality_filter = quality_filter or QualityFilter()
+        self.gallery_debug_dir = gallery_debug_dir or GALLERY_DEBUG_DIR
 
         self.use_view_chain = use_view_chain
         self.use_color_cue = use_color_cue
@@ -419,7 +421,7 @@ class TargetManager:
         self.target_was_overlapping: bool = False
 
         self.candidate_history: Dict[int, Dict[str, Any]] = {}
-        os.makedirs(GALLERY_DEBUG_DIR, exist_ok=True)
+        os.makedirs(self.gallery_debug_dir, exist_ok=True)
 
     def _transition_to(self, new_state: TargetState, frame_idx: int) -> None:
         if self.state == new_state:
@@ -532,7 +534,7 @@ class TargetManager:
                 self.last_anchor_add_frame = frame_idx
                 self.target_last_quality_emb = emb
 
-                crop_path = os.path.join(GALLERY_DEBUG_DIR, f"anchor_{frame_idx:05d}.jpg")
+                crop_path = os.path.join(self.gallery_debug_dir, f"anchor_{frame_idx:05d}.jpg")
                 cv2.imwrite(crop_path, crop)
 
         if len(self.anchor_gallery) >= ANCHOR_GALLERY_SIZE:
@@ -549,15 +551,34 @@ class TargetManager:
         target_tier: QualityTier = QualityTier.NONE
         best_candidate_score: Optional[float] = None
 
+        # LOGGING ONLY: diagnostics written to CSV, never read by any decision branch.
+        log_fields: Dict[str, Any] = {
+            "consec_sim": None,
+            "fail_counter": None if self.state == TargetState.IDLE else self.fail_counter,
+            "suspicious_countdown": None if self.state == TargetState.IDLE else self.suspicious_window_countdown,
+            "should_verify": None,
+            "passes_verify": None,
+            "best_cand_id": None,
+            "best_cand_tier": None,
+            "best_cand_sim_all": None,
+            "best_cand_sim_anchor": None,
+            "best_cand_consec": None,
+            "best_cand_req_accept": None,
+            "best_cand_margin": None,
+            "gate": None,
+        }
+
         person_scores: Dict[int, float] = {}
         person_score_details: Dict[int, Dict[str, float]] = {}
 
         if self.state == TargetState.IDLE:
+            log_fields["gate"] = "not_lost"
             return {
                 "state": self.state.value,
                 "target_box": None, "target_score": None, "sim_anchor": None, "sim_dynamic": None,
                 "t_lost": 0.0, "frame_index": frame_idx, "best_candidate_score": None,
-                "quality_tier": QualityTier.NONE.value, "person_scores": {}, "person_score_details": {}
+                "quality_tier": QualityTier.NONE.value, "person_scores": {}, "person_score_details": {},
+                **log_fields
             }
 
         for t in tracks:
@@ -613,17 +634,20 @@ class TargetManager:
                     emb = embeddings[target_track.track_id]
                     if self.target_last_quality_emb is not None:
                         consec_sim = float(np.dot(emb, self.target_last_quality_emb))
+                        log_fields["consec_sim"] = consec_sim
                         if consec_sim < CONSECUTIVE_EMB_SIM_THRESH:
                             self.anchor_gallery.clear()
                             self.target_track_id = None
                             self.target_last_quality_emb = None
                             self._transition_to(TargetState.IDLE, frame_idx)
+                            log_fields["gate"] = "not_lost"
                             return {
                                 "state": self.state.value, "target_box": None, "target_score": None,
                                 "sim_anchor": None, "sim_dynamic": None, "t_lost": 0.0,
                                 "frame_index": frame_idx, "best_candidate_score": None,
                                 "quality_tier": QualityTier.NONE.value,
-                                "person_scores": person_scores, "person_score_details": person_score_details
+                                "person_scores": person_scores, "person_score_details": person_score_details,
+                                **log_fields
                             }
                     self.target_last_quality_emb = emb
 
@@ -640,7 +664,7 @@ class TargetManager:
                             self.anchor_color_hists.append(color_hists[target_track.track_id])
                         self.last_anchor_add_frame = frame_idx
 
-                        crop_path = os.path.join(GALLERY_DEBUG_DIR, f"anchor_{frame_idx:05d}.jpg")
+                        crop_path = os.path.join(self.gallery_debug_dir, f"anchor_{frame_idx:05d}.jpg")
                         cv2.imwrite(crop_path, crops_dict[target_track.track_id])
 
                         if len(self.anchor_gallery) >= ANCHOR_GALLERY_SIZE:
@@ -688,7 +712,10 @@ class TargetManager:
 
                     if self.target_last_quality_emb is not None:
                         consec_sim = float(np.dot(emb, self.target_last_quality_emb))
+                        log_fields["consec_sim"] = consec_sim
                         if consec_sim < CONSECUTIVE_EMB_SIM_THRESH:
+                            log_fields["fail_counter"] = self.fail_counter
+                            log_fields["suspicious_countdown"] = self.suspicious_window_countdown
                             self.rollback_dynamic_gallery(frame_idx, DYNAMIC_ROLLBACK_WINDOW)
                             self.lost_frame = frame_idx
                             self.t_lost = 0.0
@@ -702,7 +729,8 @@ class TargetManager:
                                 "sim_anchor": None, "sim_dynamic": None, "t_lost": 0.0,
                                 "frame_index": frame_idx, "best_candidate_score": None,
                                 "quality_tier": target_tier.value,
-                                "person_scores": person_scores, "person_score_details": person_score_details
+                                "person_scores": person_scores, "person_score_details": person_score_details,
+                                **log_fields
                             }
                     self.target_last_quality_emb = emb
 
@@ -756,14 +784,20 @@ class TargetManager:
                     if self.frames_since_last_verify >= VERIFY_INTERVAL_FRAMES and is_tier_ok_for_verify:
                         should_verify = True
 
+                log_fields["should_verify"] = should_verify
+                log_fields["suspicious_countdown"] = self.suspicious_window_countdown
+
                 if should_verify:
                     self.frames_since_last_verify = 0
                     if target_score is not None and target_sim_anchor is not None:
                         passes_verify = (target_score >= T_VERIFY and target_sim_anchor >= T_ANCHOR_FLOOR)
+                        log_fields["passes_verify"] = passes_verify
                         if passes_verify:
                             self.fail_counter = 0
+                            log_fields["fail_counter"] = self.fail_counter
                         else:
                             self.fail_counter += 1
+                            log_fields["fail_counter"] = self.fail_counter
                             fail_limit = SUSPICIOUS_FAIL_LIMIT if is_suspicious_mode else VERIFY_FAIL_LIMIT
                             if self.fail_counter >= fail_limit:
                                 self.rollback_dynamic_gallery(frame_idx, DYNAMIC_ROLLBACK_WINDOW)
@@ -793,7 +827,7 @@ class TargetManager:
                                 self.dynamic_gallery.append((emb, col_h, frame_idx))
                                 self.last_gallery_add_frame = frame_idx
 
-                                crop_path = os.path.join(GALLERY_DEBUG_DIR, f"dyn_{frame_idx:05d}.jpg")
+                                crop_path = os.path.join(self.gallery_debug_dir, f"dyn_{frame_idx:05d}.jpg")
                                 cv2.imwrite(crop_path, crops_dict[target_track.track_id])
 
                 # EXPERIMENT E1: USE_VIEW_CHAIN_UPDATE
@@ -819,7 +853,7 @@ class TargetManager:
                                 self.view_gallery.append((emb, col_h, frame_idx))
                                 self.last_view_chain_add_frame = frame_idx
 
-                                crop_path = os.path.join(GALLERY_DEBUG_DIR, f"view_chain_{frame_idx:05d}.jpg")
+                                crop_path = os.path.join(self.gallery_debug_dir, f"view_chain_{frame_idx:05d}.jpg")
                                 cv2.imwrite(crop_path, crops_dict[target_track.track_id])
                                 print(f"[{time_str} | Frame {frame_idx:05d}] View Chain Gallery Addition (saved {crop_path}) | "
                                       f"View gallery size: {len(self.view_gallery)}/{VIEW_GALLERY_MAX_SIZE}")
@@ -928,11 +962,61 @@ class TargetManager:
                     self.t_lost = 0.0
                     self.candidate_history.clear()
 
+                # LOGGING ONLY: per-frame diagnostics of the best non-target candidate.
+                # These values are written to CSV and never read by any decision branch.
+                if self.state == TargetState.LOST:
+                    non_target_tids = [t.track_id for t in tracks if t.track_id != self.target_track_id]
+                    scored_tids = [tid for tid in non_target_tids if tid in person_scores]
+                    if not non_target_tids:
+                        log_fields["gate"] = "no_candidate"
+                    elif not scored_tids:
+                        log_fields["gate"] = "tier_none"
+                    else:
+                        b_tid = max(scored_tids, key=lambda tid: person_scores[tid])
+                        b_tier = track_tiers.get(b_tid, QualityTier.NONE)
+                        b_det = person_score_details.get(b_tid, {})
+                        b_all = b_det.get("sim_all")
+                        b_anchor = b_det.get("sim_anchor")
+                        b_data = self.candidate_history.get(b_tid)
+                        b_consec = b_data["consecutive_ok_count"] if b_data is not None else 0
+                        b_req = T_ACCEPT_LONG + (PARTIAL_ACCEPT_PENALTY if b_tier == QualityTier.PARTIAL else 0.0)
+                        other_scores = [
+                            person_scores[oid] for oid in non_target_tids
+                            if oid != b_tid and oid in person_scores
+                        ]
+                        b_margin = None
+                        if (b_data is not None and b_consec >= N_CONFIRM and b_data["scores"] and other_scores):
+                            b_margin = float(np.mean(b_data["scores"][-N_CONFIRM:])) - max(other_scores)
+
+                        log_fields["best_cand_id"] = b_tid
+                        log_fields["best_cand_tier"] = b_tier.value
+                        log_fields["best_cand_sim_all"] = b_all
+                        log_fields["best_cand_sim_anchor"] = b_anchor
+                        log_fields["best_cand_consec"] = b_consec
+                        log_fields["best_cand_req_accept"] = b_req
+                        log_fields["best_cand_margin"] = b_margin
+
+                        if b_tier not in (QualityTier.FULL, QualityTier.PARTIAL) or b_tid not in embeddings:
+                            log_fields["gate"] = "tier_none"
+                        elif b_all is None or b_all < b_req:
+                            log_fields["gate"] = "accept_fail"
+                        elif b_anchor is None or b_anchor < T_ANCHOR_FLOOR:
+                            log_fields["gate"] = "floor_fail"
+                        elif b_consec < N_CONFIRM:
+                            log_fields["gate"] = "nconfirm_fail"
+                        elif b_margin is not None and b_margin < MARGIN_MIN:
+                            log_fields["gate"] = "margin_fail"
+                        else:
+                            log_fields["gate"] = ""
+
         # State: GIVE_UP
         elif self.state == TargetState.GIVE_UP:
             self.continuous_tracking_frames = 0
             if self.lost_frame is not None:
                 self.t_lost = (frame_idx - self.lost_frame) / fps if fps > 0 else 0.0
+
+        if self.state != TargetState.LOST and log_fields["gate"] is None:
+            log_fields["gate"] = "not_lost"
 
         non_target_scores = [s for tid, s in person_scores.items() if tid != self.target_track_id]
         if non_target_scores:
@@ -954,7 +1038,8 @@ class TargetManager:
             "best_candidate_score": best_candidate_score,
             "quality_tier": target_tier.value,
             "person_scores": person_scores,
-            "person_score_details": person_score_details
+            "person_score_details": person_score_details,
+            **log_fields
         }
 
 
@@ -1126,10 +1211,17 @@ def run_tracking(video_path: str,
     os.makedirs(os.path.dirname(os.path.abspath(out_path)), exist_ok=True)
     logs_dir = "/home/foxsec/drone_project/logs"
     os.makedirs(logs_dir, exist_ok=True)
-    os.makedirs(GALLERY_DEBUG_DIR, exist_ok=True)
 
     timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
     log_csv_path = os.path.join(logs_dir, f"tracking_log_{timestamp_str}.csv")
+
+    out_stem = os.path.splitext(os.path.basename(out_path))[0]
+    gallery_run_dir = os.path.join(GALLERY_DEBUG_DIR, f"{timestamp_str}_{out_stem}")
+    suffix = 2
+    while os.path.exists(gallery_run_dir):
+        gallery_run_dir = os.path.join(GALLERY_DEBUG_DIR, f"{timestamp_str}_{out_stem}_{suffix}")
+        suffix += 1
+    os.makedirs(gallery_run_dir)
 
     cap = cv2.VideoCapture(video_path)
     if not cap.isOpened():
@@ -1158,7 +1250,8 @@ def run_tracking(video_path: str,
     manager = TargetManager(
         feature_extractor=reid_extractor,
         use_view_chain=use_view_chain,
-        use_color_cue=use_color_cue
+        use_color_cue=use_color_cue,
+        gallery_debug_dir=gallery_run_dir
     )
 
     first_frame: Optional[np.ndarray] = None
@@ -1174,7 +1267,10 @@ def run_tracking(video_path: str,
         manager.select_target(selected_id, selected_box, start_frame_idx, first_frame)
 
     with open(log_csv_path, "w", encoding="utf-8") as f:
-        f.write("frame,state,target_track_id,target_score,sim_anchor,sim_dynamic,best_candidate_score,quality_tier,num_people\n")
+        f.write("frame,state,target_track_id,target_score,sim_anchor,sim_dynamic,best_candidate_score,quality_tier,num_people,"
+                "consec_sim,fail_counter,suspicious_countdown,should_verify,passes_verify,best_cand_id,best_cand_tier,"
+                "best_cand_sim_all,best_cand_sim_anchor,best_cand_consec,best_cand_req_accept,best_cand_margin,gate,"
+                "valid,stale,age\n")
 
     window_name = f"Drone Tracking ({reid_model})"
     if not headless:
@@ -1185,6 +1281,7 @@ def run_tracking(video_path: str,
     start_time = time.time()
     current_fps = fps
     suspected_false_lock_frames: List[int] = []
+    frames_since_valid: Optional[int] = None
 
     try:
         while True:
@@ -1220,8 +1317,34 @@ def run_tracking(video_path: str,
                 cand_score_str = f"{output['best_candidate_score']:.4f}" if output['best_candidate_score'] is not None else ""
                 tgt_id_str = str(manager.target_track_id) if manager.target_track_id is not None else ""
                 tier_str = output['quality_tier']
+
+                def _log_str(val) -> str:
+                    if val is None:
+                        return ""
+                    if isinstance(val, bool):
+                        return str(int(val))
+                    if isinstance(val, float):
+                        return f"{val:.4f}"
+                    return str(val)
+
+                extra_cols = [_log_str(output.get(k)) for k in (
+                    "consec_sim", "fail_counter", "suspicious_countdown", "should_verify", "passes_verify",
+                    "best_cand_id", "best_cand_tier", "best_cand_sim_all", "best_cand_sim_anchor",
+                    "best_cand_consec", "best_cand_req_accept", "best_cand_margin", "gate"
+                )]
+                valid = output["target_box"] is not None
+                if valid:
+                    frames_since_valid = 0
+                    age_str = "0"
+                elif frames_since_valid is None:
+                    age_str = ""
+                else:
+                    frames_since_valid += 1
+                    age_str = str(frames_since_valid)
+                stale = (not valid) and (frames_since_valid is not None)
                 f.write(f"{frame_count},{output['state']},{tgt_id_str},{tgt_score_str},"
-                        f"{sim_anc_str},{sim_dyn_str},{cand_score_str},{tier_str},{len(tracks)}\n")
+                        f"{sim_anc_str},{sim_dyn_str},{cand_score_str},{tier_str},{len(tracks)},"
+                        f"{','.join(extra_cols)},{int(valid)},{int(stale)},{age_str}\n")
 
             elapsed = time.time() - t0
             inst_fps = 1.0 / elapsed if elapsed > 0 else fps
@@ -1278,7 +1401,7 @@ def run_tracking(video_path: str,
         print(f"  Average pipeline FPS    : {avg_fps:.2f} FPS")
         print(f"  Annotated video saved   : {out_path}")
         print(f"  CSV log saved           : {log_csv_path}")
-        print(f"  Gallery debug images    : {GALLERY_DEBUG_DIR}")
+        print(f"  Gallery debug images    : {gallery_run_dir}")
         print(f"  Suspected False-Locks   : {false_lock_ranges if false_lock_ranges else 'None (0 frames)'}")
         print("=" * 60 + "\n")
 

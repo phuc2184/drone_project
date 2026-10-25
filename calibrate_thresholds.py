@@ -61,7 +61,9 @@ def calibrate(video_path: str,
               gt_path: str,
               sample_stride: int = 5,
               target_track_ids: List[int] = None,
-              output_dir: str = "/home/foxsec/drone_project/outputs") -> None:
+              output_dir: str = "/home/foxsec/drone_project/outputs",
+              plot_name: str = "calibration_histograms_manual.png",
+              margin_frames: int = 30) -> None:
     print("\n" + "=" * 70)
     print("STEP 3: REID THRESHOLD CALIBRATION (calibrate_thresholds.py)")
     print("=" * 70)
@@ -71,6 +73,18 @@ def calibrate(video_path: str,
     os.makedirs(output_dir, exist_ok=True)
 
     gt_intervals = parse_ground_truth(gt_path)
+
+    # Frames within +-margin_frames of any GT boundary, and target_visible == 2
+    # frames, are excluded from BOTH classes (boundary uncertainty / partial view).
+    gt_boundaries = set()
+    for item in gt_intervals:
+        gt_boundaries.add(item["start_frame"])
+        gt_boundaries.add(item["end_frame"])
+
+    def is_excluded_frame(frame_idx: int, vis: int) -> bool:
+        if vis == 2:
+            return True
+        return any(abs(frame_idx - b) <= margin_frames for b in gt_boundaries)
 
     cap = cv2.VideoCapture(video_path)
     if not cap.isOpened():
@@ -95,6 +109,11 @@ def calibrate(video_path: str,
     target_embeddings: Dict[str, List[np.ndarray]] = {"all": [], "front": [], "back": [], "side": []}
     non_target_embeddings: List[np.ndarray] = []
 
+    # Metadata parallel to the embedding lists (same index), for the top-pair report.
+    target_meta: List[Dict[str, Any]] = []
+    non_target_meta: List[Dict[str, Any]] = []
+    no_id_frames = 0
+
     anchor_gallery: List[np.ndarray] = []
     dynamic_gallery: List[np.ndarray] = []
     last_anchor_frame = -999
@@ -113,51 +132,59 @@ def calibrate(video_path: str,
         if tracks and (frame_idx % sample_stride == 0):
             target_vis, target_view, row_tgt_id = get_gt_info(gt_intervals, frame_idx)
 
-            # Determine expected target ID for current frame
-            expected_target_id = row_tgt_id
-            if expected_target_id is None and target_vis == 1:
-                for s_f, e_f, t_id in default_interval_targets:
-                    if s_f <= frame_idx <= e_f:
-                        expected_target_id = t_id
-                        break
+            # Exclude partial (vis=2) and boundary-margin frames from BOTH classes.
+            if not is_excluded_frame(frame_idx, target_vis):
+                # Determine expected target ID for current frame
+                expected_target_id = row_tgt_id
+                if expected_target_id is None and target_vis == 1:
+                    for s_f, e_f, t_id in default_interval_targets:
+                        if s_f <= frame_idx <= e_f:
+                            expected_target_id = t_id
+                            break
+                if target_vis == 1 and expected_target_id is None:
+                    no_id_frames += 1
 
-            frame_h, frame_w = frame.shape[:2]
-            crops, valid_tids = [], []
-            for t in tracks:
-                x1, y1 = max(0, t.x1), max(0, t.y1)
-                x2, y2 = min(frame_w, t.x2), min(frame_h, t.y2)
-                if (x2 - x1) >= 30 and (y2 - y1) >= 80:
-                    crops.append(frame[y1:y2, x1:x2])
-                    valid_tids.append(t.track_id)
+                frame_h, frame_w = frame.shape[:2]
+                crops, valid_tids = [], []
+                for t in tracks:
+                    x1, y1 = max(0, t.x1), max(0, t.y1)
+                    x2, y2 = min(frame_w, t.x2), min(frame_h, t.y2)
+                    if (x2 - x1) >= 30 and (y2 - y1) >= 80:
+                        crops.append(frame[y1:y2, x1:x2])
+                        valid_tids.append(t.track_id)
 
-            if crops:
-                feats = reid.embed_batch(crops)
-                for tid, feat in zip(valid_tids, feats):
-                    is_target = False
-                    if target_vis == 1 and expected_target_id is not None:
-                        is_target = (tid == expected_target_id)
-                    elif target_vis == 1 and target_track_ids:
-                        is_target = (tid in target_track_ids)
+                if crops:
+                    feats = reid.embed_batch(crops)
+                    for tid, feat in zip(valid_tids, feats):
+                        is_target = False
+                        if target_vis == 1 and expected_target_id is not None:
+                            is_target = (tid == expected_target_id)
+                        elif target_vis == 1 and target_track_ids:
+                            is_target = (tid in target_track_ids)
 
-                    if is_target:
-                        target_embeddings["all"].append(feat)
-                        if target_view in target_embeddings:
-                            target_embeddings[target_view].append(feat)
+                        if is_target:
+                            target_embeddings["all"].append(feat)
+                            target_meta.append({"frame": frame_idx, "tid": tid,
+                                                "view": target_view, "vis": target_vis})
+                            if target_view in target_embeddings:
+                                target_embeddings[target_view].append(feat)
 
-                        # Build anchor gallery (frames 0 to 188)
-                        if frame_idx <= 188 and len(anchor_gallery) < 10:
-                            if frame_idx - last_anchor_frame >= 5:
-                                max_sim = max([float(np.dot(a, feat)) for a in anchor_gallery]) if anchor_gallery else 0.0
-                                if max_sim <= 0.95:
-                                    anchor_gallery.append(feat)
-                                    last_anchor_frame = frame_idx
-                        elif len(anchor_gallery) >= 10 and target_view == "front":
-                            # Dynamic collection candidates
-                            a_sim = compute_top_k_similarity(anchor_gallery, feat, k=3)
-                            if a_sim >= 0.80 and len(dynamic_gallery) < 30:
-                                dynamic_gallery.append(feat)
-                    else:
-                        non_target_embeddings.append(feat)
+                            # Build anchor gallery (frames 0 to 188)
+                            if frame_idx <= 188 and len(anchor_gallery) < 10:
+                                if frame_idx - last_anchor_frame >= 5:
+                                    max_sim = max([float(np.dot(a, feat)) for a in anchor_gallery]) if anchor_gallery else 0.0
+                                    if max_sim <= 0.95:
+                                        anchor_gallery.append(feat)
+                                        last_anchor_frame = frame_idx
+                            elif len(anchor_gallery) >= 10 and target_view == "front":
+                                # Dynamic collection candidates
+                                a_sim = compute_top_k_similarity(anchor_gallery, feat, k=3)
+                                if a_sim >= 0.80 and len(dynamic_gallery) < 30:
+                                    dynamic_gallery.append(feat)
+                        else:
+                            non_target_embeddings.append(feat)
+                            non_target_meta.append({"frame": frame_idx, "tid": tid,
+                                                    "view": target_view, "vis": target_vis})
 
         frame_idx += 1
 
@@ -171,6 +198,8 @@ def calibrate(video_path: str,
     print(f"    - Back view           : {len(target_embeddings['back'])}")
     print(f"    - Side view           : {len(target_embeddings['side'])}")
     print(f"  Non-Target Embeddings   : {len(non_target_embeddings)}")
+    print(f"  Excluded frames         : target_visible=2 or within +-{margin_frames} frames of a GT boundary (both classes)")
+    print(f"  Visible frames with NO expected target ID (all tracks labelled non-target): {no_id_frames}")
     print(f"  Simulated Anchor Gallery: {len(anchor_gallery)} embeddings")
     print(f"  Simulated All Gallery   : {len(all_gallery)} embeddings")
 
@@ -183,7 +212,8 @@ def calibrate(video_path: str,
     # =========================================================================
     tgt_all_mat = np.array(target_embeddings["all"])
     non_tgt_mat = np.array(non_target_embeddings)
-    diff_sims = np.dot(tgt_all_mat, non_tgt_mat.T).flatten()
+    diff_mat = np.dot(tgt_all_mat, non_tgt_mat.T)
+    diff_sims = diff_mat.flatten()
 
     def _pairwise_triu(embs: List[np.ndarray]) -> np.ndarray:
         if len(embs) < 2:
@@ -222,6 +252,17 @@ def calibrate(video_path: str,
     print(f"  99th Percentile (P99)     : {p99_diff:.4f}  <-- MINIMUM SAFE T_ACCEPT THRESHOLD")
     print(f"  99.9th Percentile         : {p999_diff:.4f}")
     print(f"  Maximum Observed Diff     : {max_diff:.4f}")
+
+    print("\nTOP-20 HIGHEST DIFFERENT-PERSON PAIRS (target frame/view vs non-target frame/view/GT label)")
+    print(f"{'#':>2} | {'score':>7} | {'tgt_f':>6} {'tgt_v':>6} | {'non_f':>6} {'non_v':>6} {'vis':>3} {'tid':>4}")
+    print("-" * 70)
+    for rank, k in enumerate(np.argsort(diff_sims)[-20:][::-1], 1):
+        ti, ni = np.unravel_index(k, diff_mat.shape)
+        tm, nm = target_meta[ti], non_target_meta[ni]
+        print(f"{rank:>2} | {diff_sims[k]:>7.4f} | {tm['frame']:>6} {tm['view']:>6} | "
+              f"{nm['frame']:>6} {nm['view']:>6} {nm['vis']:>3} {nm['tid']:>4}")
+    print("vis=1 means the GT says the target was visible (possible mislabel); vis=0 means absent.")
+    print("-" * 70)
 
     print("\n" + "-" * 70)
     print(f"2. SAME-PERSON SIMILARITY DISTRIBUTIONS & RETENTION AT T_ACCEPT >= {p99_diff:.4f}")
@@ -346,7 +387,7 @@ def calibrate(video_path: str,
     ax.grid(True, alpha=0.3)
 
     plt.tight_layout()
-    hist_out_path = os.path.join(output_dir, "calibration_histograms.png")
+    hist_out_path = os.path.join(output_dir, plot_name)
     plt.savefig(hist_out_path, dpi=200)
     plt.close()
     print(f"  Plots saved to: {hist_out_path}")
@@ -377,6 +418,8 @@ if __name__ == "__main__":
     parser.add_argument("--stride", type=int, default=5, help="Sampling frame stride")
     parser.add_argument("--target-ids", type=int, nargs="*", default=None, help="List of target track IDs across video")
     parser.add_argument("--out-dir", type=str, default="/home/foxsec/drone_project/outputs", help="Output directory for plots")
+    parser.add_argument("--plot-name", type=str, default="calibration_histograms_manual.png", help="Plot file name")
+    parser.add_argument("--margin", type=int, default=30, help="GT boundary margin to exclude (frames)")
     args = parser.parse_args()
 
     calibrate(
@@ -384,5 +427,7 @@ if __name__ == "__main__":
         gt_path=args.gt,
         sample_stride=args.stride,
         target_track_ids=args.target_ids,
-        output_dir=args.out_dir
+        output_dir=args.out_dir,
+        plot_name=args.plot_name,
+        margin_frames=args.margin
     )

@@ -168,3 +168,8 @@ PART F - SPEED (last; only make it faster, same decisions)
  are unchanged.
 
 Start with PART A now.
+
+ROADMAP RULE (all sessions): at the END of every task, before stopping, update roadmap_data.json
+(item statuses, estimated percent, one new entry in "log" with date, what was done, evidence, what is pending approval),
+then run: python3 update_roadmap.py and paste the raw output. Only mark an item done if there is evidence
+(command output, file, or my visual check). Never write "false lock = 0%". Do not change statuses of items you did not work on.

@@ -1,0 +1,11 @@
+nal_length_bytes=4
+stream_metadata_nb_frames=2699
+codec=h264
+time_base=1/10000
+avg_frame_rate=3373750/113047
+read_end_code=-541478725 eof=1
+video_packets=2699
+decoded_frames=2698
+packets_without_vcl=0
+malformed_nal_packets=0
+decode_errors=0

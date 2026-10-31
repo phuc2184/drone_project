@@ -1,0 +1,354 @@
+{
+  "configuration": {
+    "low": 0.1,
+    "match": 0.5,
+    "source_iou_precision": "as supplied; existing analysis rounds to 4 decimals"
+  },
+  "counts": {
+    "INITIALIZING/front": {
+      "overlap_agreement": 4
+    },
+    "LOST/back": {
+      "no_output": 18,
+      "visibility_unknown_no_output": 2
+    },
+    "LOST/side": {
+      "no_output": 2
+    },
+    "TRACKING/back": {
+      "no_output": 1,
+      "overlap_agreement": 3
+    },
+    "TRACKING/front": {
+      "overlap_agreement": 12
+    },
+    "TRACKING/side": {
+      "overlap_agreement": 2
+    }
+  },
+  "frames": [
+    {
+      "category": "overlap_agreement",
+      "frame": 0,
+      "iou": "0.8966",
+      "state": "INITIALIZING",
+      "view": "front"
+    },
+    {
+      "category": "overlap_agreement",
+      "frame": 60,
+      "iou": "0.8086",
+      "state": "INITIALIZING",
+      "view": "front"
+    },
+    {
+      "category": "overlap_agreement",
+      "frame": 120,
+      "iou": "0.9782",
+      "state": "INITIALIZING",
+      "view": "front"
+    },
+    {
+      "category": "overlap_agreement",
+      "frame": 180,
+      "iou": "0.8644",
+      "state": "INITIALIZING",
+      "view": "front"
+    },
+    {
+      "category": "overlap_agreement",
+      "frame": 240,
+      "iou": "0.8116",
+      "state": "TRACKING",
+      "view": "front"
+    },
+    {
+      "category": "overlap_agreement",
+      "frame": 300,
+      "iou": "0.6971",
+      "state": "TRACKING",
+      "view": "front"
+    },
+    {
+      "category": "overlap_agreement",
+      "frame": 360,
+      "iou": "0.7905",
+      "state": "TRACKING",
+      "view": "front"
+    },
+    {
+      "category": "overlap_agreement",
+      "frame": 420,
+      "iou": "0.7248",
+      "state": "TRACKING",
+      "view": "front"
+    },
+    {
+      "category": "overlap_agreement",
+      "frame": 480,
+      "iou": "0.6857",
+      "state": "TRACKING",
+      "view": "front"
+    },
+    {
+      "category": "overlap_agreement",
+      "frame": 540,
+      "iou": "0.8281",
+      "state": "TRACKING",
+      "view": "front"
+    },
+    {
+      "category": "overlap_agreement",
+      "frame": 600,
+      "iou": "0.7955",
+      "state": "TRACKING",
+      "view": "front"
+    },
+    {
+      "category": "overlap_agreement",
+      "frame": 660,
+      "iou": "0.7424",
+      "state": "TRACKING",
+      "view": "front"
+    },
+    {
+      "category": "overlap_agreement",
+      "frame": 720,
+      "iou": "0.7972",
+      "state": "TRACKING",
+      "view": "front"
+    },
+    {
+      "category": "overlap_agreement",
+      "frame": 780,
+      "iou": "0.7987",
+      "state": "TRACKING",
+      "view": "front"
+    },
+    {
+      "category": "overlap_agreement",
+      "frame": 840,
+      "iou": "0.9112",
+      "state": "TRACKING",
+      "view": "front"
+    },
+    {
+      "category": "overlap_agreement",
+      "frame": 900,
+      "iou": "0.7396",
+      "state": "TRACKING",
+      "view": "front"
+    },
+    {
+      "category": "overlap_agreement",
+      "frame": 2085,
+      "iou": "0.5302",
+      "state": "TRACKING",
+      "view": "back"
+    },
+    {
+      "category": "overlap_agreement",
+      "frame": 2105,
+      "iou": "0.7513",
+      "state": "TRACKING",
+      "view": "back"
+    },
+    {
+      "category": "no_output",
+      "frame": 2125,
+      "iou": null,
+      "state": "LOST",
+      "view": "back"
+    },
+    {
+      "category": "no_output",
+      "frame": 2145,
+      "iou": null,
+      "state": "LOST",
+      "view": "back"
+    },
+    {
+      "category": "no_output",
+      "frame": 2165,
+      "iou": null,
+      "state": "LOST",
+      "view": "back"
+    },
+    {
+      "category": "visibility_unknown_no_output",
+      "frame": 2175,
+      "iou": null,
+      "state": "LOST",
+      "view": "back"
+    },
+    {
+      "category": "no_output",
+      "frame": 2195,
+      "iou": null,
+      "state": "LOST",
+      "view": "back"
+    },
+    {
+      "category": "no_output",
+      "frame": 2205,
+      "iou": null,
+      "state": "LOST",
+      "view": "back"
+    },
+    {
+      "category": "no_output",
+      "frame": 2225,
+      "iou": null,
+      "state": "LOST",
+      "view": "back"
+    },
+    {
+      "category": "no_output",
+      "frame": 2245,
+      "iou": null,
+      "state": "LOST",
+      "view": "back"
+    },
+    {
+      "category": "no_output",
+      "frame": 2265,
+      "iou": null,
+      "state": "LOST",
+      "view": "back"
+    },
+    {
+      "category": "no_output",
+      "frame": 2285,
+      "iou": null,
+      "state": "LOST",
+      "view": "back"
+    },
+    {
+      "category": "no_output",
+      "frame": 2305,
+      "iou": null,
+      "state": "LOST",
+      "view": "back"
+    },
+    {
+      "category": "visibility_unknown_no_output",
+      "frame": 2325,
+      "iou": null,
+      "state": "LOST",
+      "view": "back"
+    },
+    {
+      "category": "no_output",
+      "frame": 2345,
+      "iou": null,
+      "state": "LOST",
+      "view": "back"
+    },
+    {
+      "category": "no_output",
+      "frame": 2365,
+      "iou": null,
+      "state": "LOST",
+      "view": "back"
+    },
+    {
+      "category": "no_output",
+      "frame": 2385,
+      "iou": null,
+      "state": "LOST",
+      "view": "back"
+    },
+    {
+      "category": "no_output",
+      "frame": 2405,
+      "iou": null,
+      "state": "LOST",
+      "view": "back"
+    },
+    {
+      "category": "no_output",
+      "frame": 2425,
+      "iou": null,
+      "state": "LOST",
+      "view": "back"
+    },
+    {
+      "category": "no_output",
+      "frame": 2445,
+      "iou": null,
+      "state": "LOST",
+      "view": "side"
+    },
+    {
+      "category": "overlap_agreement",
+      "frame": 2465,
+      "iou": "0.8245",
+      "state": "TRACKING",
+      "view": "side"
+    },
+    {
+      "category": "overlap_agreement",
+      "frame": 2485,
+      "iou": "0.8642",
+      "state": "TRACKING",
+      "view": "side"
+    },
+    {
+      "category": "no_output",
+      "frame": 2565,
+      "iou": null,
+      "state": "LOST",
+      "view": "back"
+    },
+    {
+      "category": "overlap_agreement",
+      "frame": 2585,
+      "iou": "0.8078",
+      "state": "TRACKING",
+      "view": "back"
+    },
+    {
+      "category": "no_output",
+      "frame": 2605,
+      "iou": null,
+      "state": "TRACKING",
+      "view": "back"
+    },
+    {
+      "category": "no_output",
+      "frame": 2625,
+      "iou": null,
+      "state": "LOST",
+      "view": "back"
+    },
+    {
+      "category": "no_output",
+      "frame": 2645,
+      "iou": null,
+      "state": "LOST",
+      "view": "back"
+    },
+    {
+      "category": "no_output",
+      "frame": 2655,
+      "iou": null,
+      "state": "LOST",
+      "view": "side"
+    }
+  ],
+  "inputs": {
+    "labels": {
+      "path": "ground_truth/labels_5_eye_fixed.csv",
+      "sha256": "b8050c0a05c61cf07e287f6dcf57c90e16d367c2a989886cc467e03ec905da51"
+    },
+    "log": {
+      "path": "logs/tracking_log_20261026_023427.csv",
+      "sha256": "5cf56ed2105e65b96a7e72fd4eb34347824923cd4b30e4827a2d64b8afe741e1"
+    },
+    "observations": {
+      "path": "outputs/eye_label_analysis.csv",
+      "sha256": "b1f80079d83d927139467e3279524b31ba8f4341046b6c64acbfdbc2ee81ba83"
+    }
+  },
+  "interpretation": "Geometry screening only, not identity accuracy or confirmed false-lock rate; not_visible does not establish absence. Sampling is nonrepresentative."
+}

@@ -74,7 +74,7 @@
 
 ## Chờ duyệt
 
-- [ ] Công cụ gán nhãn mục tiêu bằng mắt, độc lập tracker (đã duyệt, chờ lệnh làm - STEP 3)
+- [ ] Chờ duyệt: xem EYE_LABEL_REPORT.md (phân tích nhãn mắt) và quyết định bước tiếp theo; chưa có đề xuất đổi ngưỡng
 - [ ] Thay GIVE_UP bằng stale/invalid/reset có kiểm soát (CHƯA duyệt - chờ video mới có mất dấu dài)
 - [ ] Thầy chốt ROS2 có bắt buộc không
 
@@ -96,6 +96,18 @@
 - **Đã làm:** STEP 2(c): thêm 3 cột valid,stale,age vào cuối CSV (22 -> 25 cột). valid = 1 đúng khi target_box is not None (cùng điều kiện vẽ ô xanh); stale = 1 khi valid=0 và đã từng có frame valid trước đó (0 trước frame valid đầu tiên); age = số frame liên tiếp kể từ frame valid gần nhất (0 khi valid, rỗng trước frame valid đầu tiên). Chỉ ghi log, không đưa vào quyết định. Backup trước khi sửa: backups/follow_target_2026-10-26_023351_pre_unified_output.py.
 - **Bằng chứng:** Chạy lại baseline --out outputs/partE_baseline_step2c_unified.mp4: 2698 frame, 172.39 s, 15.65 FPS, log logs/tracking_log_20261026_023427.csv (25 cột). Regression PASS: 9 cột gốc giống hệt 2698/2698 dòng (0 dòng khác); 9 mốc chuyển trạng thái giống hệt. Cross-check toàn bộ 2698 dòng: valid khớp điều kiện hộp xanh 2698/2698 (0 lệch); valid=1 1361, valid=0 1337; stale/age 0 lỗi; tuổi lớn nhất 848; 7 khoảng stale. Kiểm tra pixel video: mọi frame valid=0 mẫu có 0 pixel xanh ngoài HUD, mọi frame valid=1 có hàng nghìn pixel xanh ngoài HUD. Không đổi ngưỡng/nhánh quyết định.
 - **Chờ duyệt:** Chờ duyệt để làm STEP 3 (label_target.py + ground_truth/labels_5_eye.csv). STEP 4 chưa duyệt.
+
+### 2026-10-26 (Phân tích nhãn mắt, độc lập tracker)
+
+- **Đã làm:** Tạo analyze_eye_labels.py (chỉ đọc): replay 2698 frame trong bộ nhớ bằng đúng các lớp DetectorTracker/TargetManager/PersonReIDExtractor/QualityFilter của follow_target.py (không ghi video, gallery_debug tạm trong /tmp), chứng minh replay trung thực, đo IoU hộp vẽ tay vs hộp tracker và cosine embedding từ hộp vẽ tay. Tạo outputs/eye_label_analysis.csv (44 dòng) và EYE_LABEL_REPORT.md. Không sửa follow_target.py, evaluate.py, calibrate_thresholds.py; không đổi hằng số/ngưỡng/nhánh quyết định; không ghi gì vào ground_truth/.
+- **Bằng chứng:** Replay: 0/2698 frame lệch state và target_track_id so với logs/tracking_log_20261026_023427.csv; 9 mốc chuyển trạng thái giống hệt; gallery 10 anchor tại frame 188 giống hệt bit giữa 2 lần replay (max abs diff 0.0). Nhãn: labels_5_eye_fixed.csv 44 dòng (42 box + 2 not_visible); loại 2675 (12x23) và 2695 (4x5, chỉ có trong labels_5_eye.csv). Task 2: best IoU front 16/16>=0.3 (p50 0.798), back 18/22 (p50 0.715), side 4/4; 21/42 frame có ô xanh, IoU(hộp vẽ tay, ô xanh) min 0.530 p50 0.799 max 0.978, không có IoU<0.1; 21 frame thấy mục tiêu nhưng không có ô xanh: 17/21 ĐƯỢC phát hiện với IoU>=0.3 (sim_anchor p50 0.648, sim_all p50 0.728, 0/21 đạt 0.83), 4 frame lệch hình học; 2 frame not_visible đều không có ô. Task 3: cosine front-front p50 0.861, back-back 0.726, front-back 0.617; sim_anchor của mục tiêu thật: front p50 0.8969, back 0.6533, side 0.7434; back+side vượt 0.60: 21/26 (80.8%), vượt 0.78: 1/26 (3.8%); người khác trong 936-1719 (6640 hộp, 134 track) sim_anchor p99 0.605 max 0.761. Không đề xuất đổi ngưỡng, không kết luận tỉ lệ khóa nhầm.
+- **Chờ duyệt:** Chờ duyệt: xem EYE_LABEL_REPORT.md (chưa có đề xuất đổi ngưỡng hay E1/E2/E3).
+
+### 2026-10-26 (Overnight: STEP 2 verify + label tool + safe analysis)
+
+- **Đã làm:** Kiểm tra read-only log STEP 2(c) (25 cột, 2698 dòng); tạo label_target.py (gán nhãn bằng mắt, lưu hộp, không lưu tracker ID); phân tích gate/best_cand_consec và chạy evaluate.py read-only. Không chạy video, không sửa follow_target.py, không đổi ngưỡng/nhánh quyết định, không bắt đầu STEP 4.
+- **Bằng chứng:** STEP 2: 0 ô khác ở 9 cột gốc so với tracking_log_20261020_132332.csv và 0 ô khác ở 22 cột đầu so với tracking_log_20261026_022150.csv; valid khớp điều kiện hộp xanh 2698/2698; valid=1 1361, valid=0 1337; stale/age 0 lỗi. valid=1 ở cả 188 dòng INITIALIZING (0-187) -> control phải kiểm tra thêm state==TRACKING. STEP 3: python3 -m py_compile OK; --dry-run in 46 frame mẫu (front 0-904 stride 60: 16 frame; back/side stride 20: 30 frame); không tạo labels_5_eye.csv; md5 ground_truth không đổi. SAFE ANALYSIS: gate counts (905-1750: accept_fail 804/tier_none 30/nconfirm_fail 10; 2110-2459: accept_fail 298/nconfirm_fail 32/tier_none 19; 2565-2697: accept_fail 47/nconfirm_fail 27), max best_cand_consec=7; evaluate.py front coverage 958/1115=85.9%, back 0/28, side 0/0, reacq 5/7, delay 12.0 frame; FALSE LOCK theo định nghĩa hẹp của script = 0, không phải tỉ lệ tổng quát. HANDOFF_2026-10-25.md không tồn tại.
+- **Chờ duyệt:** Chờ duyệt: chạy gán nhãn 46 frame bằng mắt + phân bố IoU (STEP 3 tiếp). STEP 4 chưa duyệt.
 
 ### 2026-10-25 (Step 1b gallery), tái kiểm tra 2026-10-26
 

@@ -791,3 +791,81 @@ Direct pixel check of the rendered video (green = BGR `(0,255,0)`; outside-HUD c
 Every `valid=0` sampled frame has zero green pixels outside the HUD; every `valid=1` frame has thousands. The residual 698-764 green pixels on `state=TRACKING` but `valid=0` frames are the HUD text, not a box.
 
 Scope: one video (5.mp4), 2698 frames. The counts above describe how often the box was drawn; they are **not** a correctness or false-lock rate. No threshold or decision branch was changed, and nothing in this step feeds back into tracking decisions.
+
+---
+
+## Overnight run 2026-10-26 (unattended)
+
+Scope: read-only STEP 2 verification, creation of the labeling tool, and read-only analysis. **No video was run, `follow_target.py` was not edited, no threshold/decision was changed, and STEP 4 was not started.** Full evidence: `MORNING_REPORT.md`. `HANDOFF_2026-10-25.md` was requested but does not exist.
+
+### STEP 2 VERIFY (read-only) - PASS (MEASUREMENT)
+Log `logs/tracking_log_20261026_023427.csv`:
+- 25 columns, 2698 rows; last 3 columns are `valid,stale,age`.
+- Original 9 columns: **0 differing cells** vs `logs/tracking_log_20261020_132332.csv` over all 2698 rows.
+- First 22 columns: **0 differing cells** vs `logs/tracking_log_20261026_022150.csv` over all 2698 rows.
+- `valid` matches the documented green-box condition on **2698/2698** rows; valid=1 1361, valid=0 1337; `stale`/`age` 0 consistency errors; max age 848.
+- **Downstream-control warning:** `valid=1` for **all 188 INITIALIZING rows (frames 0-187)**. `valid` means "a green box is drawn", not "TRACKING". Any controller using `valid` must also require `state == TRACKING`.
+
+### STEP 3 (a) - labeling tool created (compile + dry-run PASS)
+- New file `label_target.py` (12,650 bytes). `python3 -m py_compile` -> OK.
+- `--dry-run` (raw): 46 sampled frames = front 0-904 stride 60 (16 frames) + back/side stride 20 (30 frames); every other interval printed as skipped.
+- `ground_truth/labels_5_eye.csv` was **not created**; all GT md5 unchanged (4x OK). Interactive path **not tested** (needs your display and eyes); no labeling was run.
+
+### SAFE ANALYSIS (read-only, MEASUREMENT)
+From `logs/tracking_log_20261026_023427.csv` (gate counts and `best_cand_consec` maxima):
+| Window | Rows | State | Gates | max consec / increasing run |
+|---|---|---|---|---|
+| 1751-2084 | 334 | TRACKING 334 | not_lost 334 | n/a (candidate fields empty) |
+| 905-1750 (absence; candidate search) | 846 | LOST 846 | accept_fail 804, tier_none 30, nconfirm_fail 10, empty 1, no_candidate 1 | 7 at 1750; 1744-1750 (1->7) |
+| 2110-2459 (tracker LOST) | 350 | LOST 350 | accept_fail 298, nconfirm_fail 32, tier_none 19, empty 1 | 7 at 2459; 2452-2459 (0->7) |
+| 2565-2697 | 133 | LOST 75 / TRACKING 58 | not_lost 58, accept_fail 47, nconfirm_fail 27, empty 1 | 7 at 2580/2671/2683; 2573-2580 (0->7) |
+The log carries no candidate identity; the gate counts describe the best-scoring candidate only and do not identify the true target.
+
+`evaluate.py` on that log with `5_manual.csv` (raw): coverage front 958/1115 = 85.9%, back 0/28 = 0.0%, side 0/0; raw coverage back 69/270 = 25.6%, side 59/103 = 57.3%; reacquisition 5/7, average delay 12.0 frames. The script's automatic FALSE LOCK count is 0 on its **narrow** definition (TRACKING while target_visible=0 outside the +-30 margin) and cannot see a wrong-person box while the target is visible. Correct statement: **no false lock found in sampled frames checked by eye, one video only**.
+
+### Bookkeeping
+- Updated `roadmap_data.json` (log entry + pending approval item) and regenerated `ROADMAP.md` / `outputs/progress_roadmap.png`. Stage 2 remains an **ESTIMATE** (68-70%).
+- Files touched: new `label_target.py`, new `MORNING_REPORT.md`; `STATUS.md`, `roadmap_data.json`, `ROADMAP.md`, `outputs/progress_roadmap.png`. No GT file, no `follow_target.py`, no `evaluate.py` logic, no `calibrate_thresholds.py`, no `GEMINI_BRIEF.md`, no `.gitignore`.
+
+---
+
+## Eye-label analysis 2026-10-26 (read-only)
+
+Full report: `EYE_LABEL_REPORT.md`. Script: `analyze_eye_labels.py`. Data: `outputs/eye_label_analysis.csv` (44 rows). Labels: `ground_truth/labels_5_eye_fixed.csv` (42 box + 2 not_visible; `labels_5_eye.csv` read-only to identify the two suspicious rows). Nothing under `ground_truth/` was written; `follow_target.py`, `evaluate.py`, `calibrate_thresholds.py`, constants and thresholds unchanged.
+
+### Replay faithfulness (MEASUREMENT)
+Replayed all 2698 frames in memory with the real pipeline classes (no video written, temp gallery dir under `/tmp`): **state and target_track_id mismatches = 0 / 2698** vs `logs/tracking_log_20261026_023427.csv`; the 9 state changes (188, 905, 1751, 2110, 2460, 2513, 2581, 2625, 2684) are identical. The 10-anchor gallery at frame 188 is bit-identical across two independent replays (max abs diff 0.0).
+
+### Excluded labels
+Frames **2675** (12x23 px) and **2695** (4x5 px) are not in `labels_5_eye_fixed.csv` (they exist only in `labels_5_eye.csv`) - listed as excluded. The 40x80 px rule removed 0 further rows.
+
+### Task 2 - hand box vs tracker output (MEASUREMENT, 42 box labels + 2 not_visible)
+| Quantity | Result |
+|---|---|
+| Best IoU(hand box, any tracker box) | front 16/16 >=0.3 (p50 0.798); back 18/22 (p50 0.715, min 0.000); side 4/4 (p50 0.815) |
+| Green box drawn | 21/42 frames (front 16/16, back 3/22, side 2/4) |
+| IoU(hand, drawn box) n=21 | min 0.530, p50 0.799, p90 0.897, max 0.978; **IoU<0.1: 0** (no POSSIBLE false-lock candidate to list) |
+| (a) visible but no box | 21 frames; **17 detected at IoU>=0.3**, **15/21 both detected and sim_anchor>=0.60**; 4 geometry misses (2165 0.000, 2285 0.102, 2345 0.295, 2365 0.278); best candidate sim_anchor p50 0.648/max 0.726, sim_all p50 0.728/max 0.826, 0/21 reached 0.83 |
+| (b) drawn-box IoU<0.1 | none in these 21 frames (statement about one video's sample, not a rate) |
+| (c) not_visible + drawn box | 0/2 (frames 2175, 2325 both LOST, no box) |
+
+### Task 3 - embeddings from the hand boxes (MEASUREMENT, 42 boxes vs the 10 anchors)
+| Group | Cosine p50 | p90 | p95 | max |
+|---|---|---|---|---|
+| front-front (n=240) | 0.861 | 0.915 | 0.927 | 0.944 |
+| back-back (n=462) | 0.726 | 0.838 | 0.870 | 0.933 |
+| front-back (n=352) | 0.617 | 0.693 | 0.710 | 0.769 |
+| front-side (n=64) | 0.665 | 0.778 | 0.795 | 0.814 |
+| back-side (n=88) | 0.698 | 0.785 | 0.801 | 0.845 |
+
+(Gap>=20-frame filter barely changes anything: the labels are already 20-60 frames apart.)
+
+True-target `sim_anchor` per view: front n=16 min 0.8483 / p50 0.8969 / max 0.9583; back n=22 min 0.4342 / p50 0.6533 / max 0.7554; side n=4 min 0.5754 / p50 0.7434 / max 0.7896. Back+side above `T_ANCHOR_FLOOR` 0.60: **21/26 (80.8%)**; above `T_ACCEPT_LONG` 0.78: **1/26 (3.8%)**; front above both: 16/16.
+
+Different-person reference: other boxes in the same labeled frames with IoU<0.1 (n=170) p99 0.551 / max 0.686; all scored people in frames 936-1719 (n=6640 boxes, 134 tracks) sim_anchor p99 0.605 / max 0.761, sim_all p99 0.670 / max 0.798. Two different-person tracks (204, 246) reach 0.70-0.76, i.e. the upper tail overlaps the true target's back-view scores (p50 0.661). Descriptive only - no threshold proposal, no E1/E2/E3 recommendation, no false-lock rate claimed.
+
+### Limits
+One video; 42 hand boxes (16 front, 22 back, 4 side); hand boxes differ from tracker boxes; the 4 front labels at frames 0-180 were taken while the gallery had 1-9 anchors (front stats restricted to frames >=188 are also reported: n=12, p50 0.8888, max 0.9335); "target absent" in 936-1719 is taken from manual GT. Frame seeking gives different pixels than sequential decoding in this file, so all reported numbers use sequential decoding.
+
+### Bookkeeping
+- New: `analyze_eye_labels.py`, `EYE_LABEL_REPORT.md`, `outputs/eye_label_analysis.csv`. Edited: `STATUS.md`, `roadmap_data.json` (timestamped backups `backups/STATUS_2026-10-26_151605_pre_eye_labels.md`, `backups/roadmap_data_2026-10-26_151605_pre_eye_labels.json`), `ROADMAP.md` + `outputs/progress_roadmap.png` regenerated. Stage 2 stays an **ESTIMATE** (68-70%). No commit.
